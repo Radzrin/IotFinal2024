@@ -2,6 +2,7 @@ from dash import Dash, dcc, html, Input, Output, DiskcacheManager, CeleryManager
 import RPi.GPIO as GPIO
 from gpiozero import LED
 import Freenove_DHT as DHT
+import time
 
 
 #GPIO WARNING OFF (ignore this part)
@@ -50,7 +51,8 @@ app.layout = html.Div(children=[
         html.Div(id='weatherDiv', children=[
             html.H2("Weather"),
             html.Img(src='', id='fanimg'),
-            html.Div(id='testP'),
+            html.Div(id='testT'),
+            html.Div(id='testH'),
             ])
         ]),#interval that updates the code every 1000ms (1s)
         dcc.Interval(
@@ -79,16 +81,31 @@ def update_output(n_clicks):
     
     return 0
             
-# Change the temperature in real time and send email if it reaches a certain treshold (10*C)
+# Read the temperature in real time and send email if it reaches a certain treshold (24*C)
 @callback(
-    Output('testP', 'children'),
+    Output('testT', 'children'),
     Input('interv', 'n_intervals'),
     prevent_initial_call=True
  )           
 def FanCheck(inVal):
 
     dht = DHT.DHT(DHTin)
-
+    
+    isSent = False
+    
+    counts = 0 # Measurement counts
+    while(True):
+        counts += 1
+        for i in range(0,15):
+            chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+            if (chk is dht.DHTLIB_OK):      #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+                break
+            time.sleep(0.1)
+        print("Temperature : %.2f \n"%(dht.temperature))
+        if(dht.temperature >= 24 and isSent == False):
+            return 0
+        return dht.temperature
+    
     '''
     TODO
     make a boolean value called isSent
@@ -98,14 +115,26 @@ def FanCheck(inVal):
     if inVal 
     '''
 
+# Read the humidity in real time
+@callback(
+    Output('testH', 'children'),
+    Input('interv', 'n_intervals'),
+    prevent_initial_call=True
+ )           
+def humidityCheck(inVal):
 
-    if(dht.temperature >= 10):
-        return 0
+    dht = DHT.DHT(DHTin)
     
-
-    return dht.temperature
-    
-    
+    counts = 0 # Measurement counts
+    while(True):
+        counts += 1
+        for i in range(0,15):
+            chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+            if (chk is dht.DHTLIB_OK):      #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+                break
+            time.sleep(0.1)
+        print("Humidity : %.2f\n"%(dht.humidity))
+        return dht.humidity
 
 if __name__ == '__main__':
     app.run(debug=True)
