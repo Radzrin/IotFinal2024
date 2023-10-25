@@ -1,92 +1,147 @@
-from dash import Dash, dcc, html, Input, Output, DiskcacheManager, CeleryManager, callback
-import RPi.GPIO as GPIO
-from gpiozero import LED
+from dash import Dash, html, dcc, Input, Output, callback, DiskcacheManager, CeleryManager
+import plotly.graph_objects as go
+import dash_daq as daq
+import dash_bootstrap_components as dbc
 import Freenove_DHT as DHT
 import time
+import RPi.GPIO as GPIO
+from gpiozero import LED
 
-
-#GPIO WARNING OFF (ignore this part)
+# GPIO WARNING OFF (ignore this part)
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
-
 
 # GPIO setup
 LED = 12
 GPIO.setup(LED, GPIO.OUT)
 
+# DHT setup
 DHTin=13
 
-
-#on and off LED Image
-ledonImg = "https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fwww.pngall.com%2Fwp-content%2Fuploads%2F2016%2F03%2FLight-Bulb-PNG-File.png&f=1&nofb=1&ipt=4b6dfaef65c3415b004cf1ace7ec7e574e72761bd0b4a499e421ad558bdb6188&ipo=images"
-ledoffImg = "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fjooinn.com%2Fimages%2Fisolated-light-bulb-1.jpg&f=1&nofb=1&ipt=f78dfa9fd703b7f469b6fdba546220e119555a0d638393e27a9b653beac80ffe&ipo=images"
-
-
-app = Dash(__name__)
-
-app.head = [html.Link(rel='stylesheet', href='iotcss.css')]
+# App
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = html.Div(children=[
-    html.Nav([
-        html.H3("Iot Project")
-        ]),
-    html.Div(id="wrapper", children=[
-        html.Div(id='user',
-             children=[
-                 html.Img(id='pfp', src="#"),
-                 html.Ul(id="userPref", children=[
-                    html.Li("Username"),
-                    html.Li("Light Treshold"),
-                    html.Li("Temeraure Treshold"),
-                    html.Li("Humidity Treshold"),
-                    html.Li("s")
-                 ])
-                 ]),
-        html.Div(id='ledDiv', children=[
-            html.H2("LED"),
-            html.Button(children=[
-                html.Img(src=ledoffImg, id='btnimg', height='200px')
-                ], id='submit-val', n_clicks=0)
-            ]),
-        html.Div(id='weatherDiv', children=[
-            html.H2("Weather"),
-            html.Img(src='', id='fanimg'),
-            html.Div(id='testT'),
-            html.Div(id='testH'),
-            ])
-        ]),#interval that updates the code every 1000ms (1s)
-        dcc.Interval(
-            id='interv',
-            interval=1000,
-            n_intervals=0
-        )
+    dbc.Navbar(
+        dbc.Container(
+            [
+                html.A(
+                    dbc.Row(
+                        [
+                            dbc.Col(dbc.NavbarBrand("IoT - Dashboard", className="ms-2")),
+                        ],
+                        align="center",
+                        className="g-0",
+                    ),
+                    style={"textDecoration": "none"},
+                )
+            ],
+        ),
+        color="#393646",
+        dark=True,
+    ),
+    
+    
+    # Top Div
+    html.Div(children=[
+        html.H1("User", "header"),
+        html.Div(children=[
+            html.Img(src="assets/userIcon.png", id="userIcon"),
+        ])
+    ],id='topDiv'),
+    html.Div(children=[
+        html.Div(children=[
+            html.H1("Temperature and Humidity", "header"),
+            html.Div(children=[
+                html.Div([
+                    daq.Gauge(
+                        showCurrentValue=True,
+                        color={"gradient":True,"ranges":{"blue":[-40,-24],"green":[-24,24],"red":[24,40]}},
+                        id='temp-gauge',
+                        label="Temperature",
+                        value=0,
+                        min=-40,
+                        max=40,
+                        units="°C",
+                        size=150,
+                        theme="dark"
+                    ),
+                ], id="temp-gaugeDiv"),
+                html.Div([
+                    daq.Gauge(
+                        showCurrentValue=True,
+                        color={"gradient":True,"ranges":{"blue":[-40,-24],"green":[-24,24],"red":[24,40]}, "value": "black"},
+                        id='hum-gauge',
+                        label="Humidity",
+                        value=0,
+                        min=-40,
+                        max=40,
+                        units="°C",
+                        size=150
+                    ),
+                ], id="hum-gaugeDiv"),
+            ], className="gaugeContainer"),
+            dcc.Interval(
+                id='intervalDiv',
+                interval=1000,
+                n_intervals=0
+            )
+            
+        ],id='temp-humDiv'),
+
+        # Fan Div
+        html.Div(children=[
+            html.H1("Fan", "header"),
+            html.Div(children=[
+                html.Img(style={'width': '200px', 'height': '200px'}, src="assets/fan.png", className="rotate-image", id="rotate-image"),
+            ], id="fanDiv"),
+            daq.ToggleSwitch(id='toggle-switch')
+        ], id="div1"),
+        
+        # Light Div
+        html.Div(children=[
+            html.H1("Light", "header"),
+            html.Div([
+                html.Img(id='image-display'),
+            ], id="lightDiv"),
+            daq.ToggleSwitch(id='image-toggle')
+        ], id="div2"),
+    ], className="widgetContainer")
 ])
+    
+# Turn Light ON and OFF
+@app.callback(Output('image-display', 'src'),
+    Input('image-toggle', 'value'))
+    
+def update_image(toggle_value):
+    lightOn = 'assets/lightOn.png'
+    lightOff = 'assets/lightOff.png'
+    
+    if toggle_value:
+        # GPIO.output(LED, GPIO.HIGH)
+        return lightOn
+    else:
+        # GPIO.output(LED, GPIO.LOW) 
+        return lightOff
 
+# TODO: At the moment, the fan is only being turned on by a toggle switch. Change when email is received.
+# TODO: Test the gauge 
+@app.callback(
+    Output('rotate-image', 'className'),
+    Input('toggle-switch', 'value')
+)
 
+def update_image_rotation(toggle_value):
+    if toggle_value:
+        return "rotate-image"
+    else:
+        return ""
 
-
-#turn LED on and off whenever the user presses the button on the dashboard
-@callback(
-    Output('btnimg', 'src'),
-    Input('submit-val', 'n_clicks'),
+@app.callback(Output('temp-gauge', 'value'),
+    Input('intervalDiv', 'n_intervals'),
     prevent_initial_call=True
 )
-def update_output(n_clicks):
-    if n_clicks % 2:
-       GPIO.output(LED, GPIO.LOW)
-       return ledoffImg
-    else:
-       GPIO.output(LED, GPIO.HIGH)
-       return ledonImg
-    
-    return 0
-            
-# Read the temperature in real time and send email if it reaches a certain treshold (24*C)
-@callback(
-    Output('testT', 'children'),
-    Input('interv', 'n_intervals'),
-    prevent_initial_call=True
- )           
+
 def FanCheck(inVal):
 
     dht = DHT.DHT(DHTin)
@@ -115,12 +170,14 @@ def FanCheck(inVal):
     if inVal 
     '''
 
-# Read the humidity in real time
-@callback(
-    Output('testH', 'children'),
-    Input('interv', 'n_intervals'),
+
+# Read Humidity from DHT11 and output to the gauge
+# TODO: Test the gauge
+@app.callback(Output('hum-gauge', 'value'),
+    Input('intervalDiv', 'n_intervals'),
     prevent_initial_call=True
- )           
+ )      
+     
 def humidityCheck(inVal):
 
     dht = DHT.DHT(DHTin)
@@ -136,5 +193,6 @@ def humidityCheck(inVal):
         print("Humidity : %.2f\n"%(dht.humidity))
         return dht.humidity
 
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run_server(debug=True)
