@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 import RPi.GPIO as GPIO
 from gpiozero import LED
 import Freenove_DHT as DHT
+import DHT11 as DHT11
 # import bluetooth
 import smtplib
 import time as time
@@ -14,19 +15,18 @@ from email.header import decode_header
 import webbrowser
 import os
 
-emailadd = ""
-password = ""
+emailadd = "iotproject2024@outlook.com"
+password = "Project4iot2024"
 
 # GPIO WARNING OFF (ignore this part)
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
-# GPIO setup
 LED = 12
 GPIO.setup(LED, GPIO.OUT)
 
-# DHT setup
-DHTin=13
+DHTPin = 13 
+dht = DHT.DHT(DHTPin) 
 
 # Motor Setup
 Motor1 = 22 # Enable Pin
@@ -106,19 +106,18 @@ app.layout = html.Div(children=[
                 html.Div([
                     daq.Gauge(
                         showCurrentValue=True,
-                        color={"gradient":True,"ranges":{"blue":[-20,-24],"green":[-24,24],"red":[24,40]}},
+                        color={"gradient":True,"ranges":{"blue":[-10,-24],"green":[-24,24],"red":[24,40]}},
                         id='temp-gauge',
                         label="Temperature",
                         value=0,
-                        min=-20,
+                        min=-10,
                         max=40,
                         units="°C",
                         size=150,
                         theme="dark"
                     ),
                 ], id="temp-gaugeDiv"),
-				
-                html.Div([
+				html.Div([
                     daq.Gauge(
                         showCurrentValue=True,
                         color={"gradient":True,"ranges":{"blue":[-20,-24],"green":[-24,24],"red":[24,40]}},
@@ -131,12 +130,8 @@ app.layout = html.Div(children=[
                         size=150
                     ),
                 ], id="hum-gaugeDiv"),
-				
-				dcc.Interval(
-                    id='intervalDiv',
-                    interval=1000,
-                    n_intervals=0
-                )
+				html.P("Does it Work?"),
+                html.Div(id='testP1'),
             ], className="gaugeContainer"),
             
         ],id='temp-humDiv'),
@@ -149,6 +144,7 @@ app.layout = html.Div(children=[
             ], id="fanDiv"),
             daq.ToggleSwitch(id='toggle-switch')
         ], id="div1"),
+	html.Div(id='testP'),
         
         # Light Div
         html.Div(children=[
@@ -162,9 +158,12 @@ app.layout = html.Div(children=[
 	# Testing
 
 	# html.Div(id='testT'),
-	# html.Div(id='testT'),
-	# html.Div(id='testP'),
-	# html.Div(id='testP1'),
+	
+    dcc.Interval(
+        id='intervalDiv',
+        interval=1000,
+        n_intervals=0
+    )
 
 ])
     
@@ -183,18 +182,6 @@ def update_image(toggle_value):
         GPIO.output(LED, GPIO.LOW) 
         return lightOff
 
-# TODO: At the moment, the fan is only being turned on by a toggle switch. Change when email is received.
-@app.callback(
-    Output('rotate-image', 'className'),
-    Input('toggle-switch', 'value')
-)
-
-def update_image_rotation(toggle_value):
-    if toggle_value:
-        return "rotate-image"
-    else:
-        return ""
-
 
 # Change the temperature in real time and send email if it reaches a certain treshold (10*C)
 # Read the temperature in real time and send email if it reaches a certain treshold (24*C)
@@ -204,25 +191,19 @@ def update_image_rotation(toggle_value):
 )
 
 def FanCheck(inVal):
-
-	dht = DHT.DHT(DHTin)
+    isSent = False
+    for i in range(0,15):
+        chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+        if (chk is dht.DHTLIB_OK):      #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+            break
+        time.sleep(0.1)
+    print("Temperature : %.2f\n"%(dht.temperature))
 	
-	isSent = False
-	
-	counts = 0 # Measurement counts
-	while(True):
-		counts += 1
-		for i in range(0,15):
-			chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
-			if (chk is dht.DHTLIB_OK):      #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
-				break
-			time.sleep(0.1)
-		print("Temperature : %.2f \n"%(dht.temperature))
-		if(dht.temperature >= 24 and isSent == False):
-			isSent = True # only send 1 email
-			send()
-			return 0
-		return dht.temperature
+    if(dht.temperature >= 24 and isSent == False):
+        isSent = True # only send 1 email
+        send()
+        return 0
+    return dht.temperature
 
 
 # Read the humidity in real time
@@ -232,19 +213,13 @@ def FanCheck(inVal):
  )      
      
 def humidityCheck(inVal):
-
-    dht = DHT.DHT(DHTin)
-    
-    counts = 0 # Measurement counts
-    while(True):
-        counts += 1
-        for i in range(0,15):
-            chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
-            if (chk is dht.DHTLIB_OK):      #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
-                break
-            time.sleep(0.1)
-        print("Humidity : %.2f\n"%(dht.humidity))
-        return dht.humidity
+    for i in range(0,15):
+        chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+        if (chk is dht.DHTLIB_OK):      #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
+            break
+        time.sleep(0.1)
+    print("Humidity : %.2f\n"%(dht.humidity))
+    return dht.humidity
 
 '''
 @callback(
@@ -259,6 +234,21 @@ def scan(n):
 	number_of_devices = len(devices)
 	return f'{number_of_devices} devices found'     
 '''
+
+# TODO: At the moment, the fan is only being turned on by a toggle switch. Change when email is received.
+# every second, check if the email was sent
+# if yes read the email
+# else set isSent to True and send an email
+@app.callback(
+    Output('rotate-image', 'className'),
+    Input('toggle-switch', 'value')
+)
+
+def update_image_rotation(toggle_value):
+    if toggle_value:
+        return "rotate-image"
+    else:
+        return ""
 
 # every second, check if the email was sent
 # if yes read the email
