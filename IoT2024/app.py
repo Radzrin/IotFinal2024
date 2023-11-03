@@ -7,13 +7,12 @@ from gpiozero import LED
 import Freenove_DHT as DHT
 import DHT11 as DHT11
 # import bluetooth
-import smtplib
 import time as time
-import imaplib
-import email
-from email.header import decode_header
 import webbrowser
-import os
+import os, ssl, smtplib
+from email.message import EmailMessage
+import email, imaplib
+from email.header import Header, decode_header
 
 # GPIO WARNING OFF (ignore this part)
 GPIO.setwarnings(False)
@@ -43,35 +42,36 @@ def openMot():
 	GPIO.output(Motor1,GPIO.HIGH)
 	GPIO.output(Motor2,GPIO.LOW)
 	GPIO.output(Motor3,GPIO.HIGH)
-
-def clean(text):
-	# clean text for creating a folder
-	return "".join(c if c.isalnum() else "_" for c in text)
+	
+def closeMot():
+	GPIO.output(Motor1,GPIO.LOW)
+	GPIO.output(Motor2,GPIO.HIGH)
+	GPIO.output(Motor3,GPIO.LOW)
 
 fanON = "rotate-image"
 fanOFF = ""
-
-
-# Send Email
-emailadd = "iotproject1testing@outlook.com"
-password = "Testingiotproject1"
-emailCount = 0
-isSent = False #check to ony send 1 email
+isSent = False
+curr_temperature = 0
+email_sender = 'galenkomaxym@gmail.com'
+email_password = 'wgdc hsdp jdlj xgld'
+email_receiver = 'galenkomaxym@gmail.com'
 
 def send():
-	with smtplib.SMTP('outlook.office365.com', 587) as smtp:
-		smtp.ehlo()
-		smtp.starttls()
-		smtp.ehlo()
+    subject = 'Your prefered temperature'
+    body = '''
+    Temperature exceeded 24°C do you want to turn on fans?
+    '''
+    em = EmailMessage()
+    em['From'] = email_sender
+    em['To'] = email_receiver
+    em['Subject'] = subject
+    em.set_content(body)
 
-		smtp.login(emailadd, password)
+    context = ssl.create_default_context()
 
-		subject = 'Temp'
-		body = 'Temperature exceeded 24C do you want to turn on fans?'
-
-		msg = f'subject: {subject}\n\n{body}'
-
-		smtp.sendmail(emailadd, emailadd, msg)
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+        smtp.login(email_sender, email_password)
+        smtp.send_message(em)
 
 # App
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -199,21 +199,22 @@ def update_image(toggle_value):
 )
 
 def HumTempGauges(inVal):
-    isSent = False
+    global isSent
+    global curr_temperature
     for i in range(0,15):
         chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
         if (chk is dht.DHTLIB_OK):      #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
             break
         time.sleep(0.1)
-    print("Temperature : %.2f\n"%(dht.temperature))
-    print("Humidity : %.2f\n"%(dht.humidity))
+    
+    curr_temperature = dht.temperature
 	
     #Check if fan must be turned on
     if(dht.temperature >= 24 and isSent == False):
         isSent = True # only send 1 email
-        emailCount = 1
         send()
         return 0
+        
     return dht.temperature, dht.humidity
 
 '''
@@ -241,83 +242,55 @@ def scan(n):
 )
 def check(toggle_value):
     global isSent
-
-    imap_server = "outlook.office365.com"  # email server
-    # create an IMAP4 class with SSL
-    imap = imaplib.IMAP4_SSL(imap_server)
-    # authenticate
-    imap.login(emailadd, password)
-
-    status, messages = imap.select("INBOX")
-    # number of top emails to fetch
-    N = 1
-    # total number of emails
-    messages = int(messages[0])
-    isSent = True
-    emailCount = 1
-    for i in range(messages, messages - N, -1):
-        # fetch the email message by ID
-        res, msg = imap.fetch(str(i), "(RFC822)")
-        for response in msg:
-            if isinstance(response, tuple):
-                # parse a bytes email into a message object
-                msg = email.message_from_bytes(response[1])
-                # decode the email subject
-                subject, encoding = decode_header(msg["Subject"])[0]
-                if isinstance(subject, bytes):
-                    # if it's a bytes, decode to str
-                    subject = subject.decode(encoding)
-                # decode email sender
-                From, encoding = decode_header(msg.get("From"))[0]
-                if isinstance(From, bytes):
-                    From = From.decode(encoding)
-                # if the email message is multipart
-                if msg.is_multipart():
-                    # iterate over email parts
-                    for part in msg.walk():
-                        # extract content type of email
-                        content_type = part.get_content_type()
-                        content_disposition = str(part.get("Content-Disposition"))
-                        try:
-                            # get the email body
-                            body = part.get_payload(decode=True).decode()
-                            print(body)
-                        except:
-                            pass
-                        if content_type == "text/plain" and "attachment" not in content_disposition:
-                            # print text/plain emails and skip attachments
-                            print(body)
-                            if "yes" in body:
-                                isSent = False
-                                openMot() # start motor
-                                print("fan is on")
-                                return fanON  # Return "rotate-image" when "yes" is found
-                            else:
-                                # extract content type of email
-                                content_type = msg.get_content_type()
-                                # get the email body
-                                body = msg.get_payload(decode=True).decode()
-                                if content_type == "text/plain":
-                                    # print only text email parts
-                                    print(body + "bod")
-                                    if("yes" in body):
-                                        isSent = False
-                                        openMot() # start motor
-                                        print("fan is on")
-                                        return fanON
-        print("fan is off")  
-        # if needed close motor here                          
+    global curr_temperature
+    
+    if(curr_temperature < 24):
+        closeMot()
         return fanOFF
     else:
-        print("fan is off")  
-        # if needed close motor here  
-        return fanOFF
-    # Close the connection and logout
-    imap.close()
-    imap.logout()
+        # IMAP settings
+        imap_server = 'imap.gmail.com'  # Replace with your IMAP server (e.g., imap.gmail.com)
+        username = 'galenkomaxym@gmail.com'  # Your email address
+        password = 'wgdc hsdp jdlj xgld'  # Your email password
 
-check(1)
+        # Subject to search for
+        subject_to_search = 'Your prefered temperature'
 
+        # Connect to the IMAP server
+        mail = imaplib.IMAP4_SSL(imap_server)
+        mail.login(username, password)
+
+        # Select the mailbox you want to search (e.g., 'INBOX')
+        mailbox = 'INBOX'
+        mail.select(mailbox)
+
+        # Search for emails with the specified subject
+        search_criteria = f'SUBJECT "{subject_to_search}"'
+        result, data = mail.search(None, search_criteria)
+
+        if result == 'OK':
+            email_ids = data[0].split()
+            if email_ids:
+                latest_email_id = email_ids[-1]  # Get the latest email ID
+                # Fetch the latest email
+                result, msg_data = mail.fetch(latest_email_id, '(RFC822)')
+                if result == 'OK':
+                    raw_email = msg_data[0][1]
+                    msg = email.message_from_bytes(raw_email)
+                    subject, encoding = decode_header(msg['Subject'])[0]
+                    if isinstance(subject, bytes):
+                        subject = subject.decode(encoding or 'utf-8')
+
+                    # Extract and print the email body
+                    for part in msg.walk():
+                        if part.get_content_type() == 'text/plain':
+                            body = part.get_payload(decode=True).decode()
+                            if('yes' in body.lower()):
+                                openMot() # start motor
+                                return fanON
+        # Close the mailbox and logout
+        mail.close()
+        mail.logout()
 
 if __name__ == '__main__':
     app.run_server(debug=True)
