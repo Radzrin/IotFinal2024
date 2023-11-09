@@ -13,6 +13,8 @@ import os, ssl, smtplib
 from email.message import EmailMessage
 import email, imaplib
 from email.header import Header, decode_header
+import paho.mqtt.client as mqttClient
+import dash_mqtt
 
 # GPIO WARNING OFF (ignore this part)
 GPIO.setwarnings(False)
@@ -55,6 +57,10 @@ curr_temperature = 0
 email_sender = 'galenkomaxym@gmail.com'
 email_password = 'wgdc hsdp jdlj xgld'
 email_receiver = 'galenkomaxym@gmail.com'
+
+broker_address= "192.168.0.167"  #Broker address
+port = 1884   
+
 
 def send():
     subject = 'Your prefered temperature'
@@ -104,7 +110,7 @@ app.layout = html.Div(children=[
             html.Img(src="assets/userIcon.png", id="userIcon"),
         ]),
         html.Div(children=[
-            html.P("User ID: 204834"),
+            html.P("User ID: 1232320", id="uid"),
             html.P("User Prefered Temperature: 24°C"),
             html.P("User Name : Name123")
         ], id="userContent")
@@ -162,7 +168,6 @@ app.layout = html.Div(children=[
         ], id="div2"),
     ], className="widgetContainer"),
 	# Testing
-
 	# html.Div(id='testT'),
 	
     dcc.Interval(
@@ -292,5 +297,30 @@ def check(toggle_value):
         mail.close()
         mail.logout()
 
+# The callback for when the client receives a CONNACK response from the server.
+def on_connect(client, userdata, flags, rc):
+    print("Connected with result code "+str(rc))
+
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    client.subscribe("IoTlab/ESP")
+    client.subscribe("/esp8266/data")
+
+# The callback for when a PUBLISH message is received from the server.
+def on_message(client, userdata, msg):
+    print(msg.topic+" "+str(msg.payload))
+
+client = mqttClient.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+
+client.connect_async(broker_address, 1884, 60)
+
+# Blocking call that processes network traffic, dispatches callbacks and
+# handles reconnecting.
+# Other loop*() functions are available that give a threaded interface and a
+# manual interface.
+client.loop_start()
+  
 if __name__ == '__main__':
     app.run_server(debug=True)
