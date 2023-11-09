@@ -7,7 +7,7 @@ from gpiozero import LED
 import Freenove_DHT as DHT
 import DHT11 as DHT11
 # import bluetooth
-import time as time
+import time, datetime
 import webbrowser
 import os, ssl, smtplib
 from email.message import EmailMessage
@@ -25,13 +25,15 @@ LED = 12
 GPIO.setup(LED, GPIO.OUT)
 
 # DHT11 Setup
-DHTPin = 13 
-dht = DHT.DHT(DHTPin) 
+#DHTPin = 13
+DHTPin = 17
+dht = DHT.DHT(DHTPin)
 
 # Motor Setup
 Motor1 = 22 # Enable Pin
 Motor2 = 27 # Input Pin
-Motor3 = 17 # Input Pin
+Motor3 = 4
+#Motor3 = 17 # Input Pin
 GPIO.setup(Motor1,GPIO.OUT)
 GPIO.setup(Motor2,GPIO.OUT)
 GPIO.setup(Motor3,GPIO.OUT)
@@ -54,6 +56,8 @@ fanON = "rotate-image"
 fanOFF = ""
 isSent = False
 curr_temperature = 0
+led_on_time = datetime.datetime.now()
+email_status = ""
 email_sender = 'galenkomaxym@gmail.com'
 email_password = 'wgdc hsdp jdlj xgld'
 email_receiver = 'galenkomaxym@gmail.com'
@@ -62,10 +66,29 @@ broker_address= "192.168.0.167"  #Broker address
 port = 1884   
 
 
-def send():
-    subject = 'Your prefered temperature'
+def sendTempEmail():
+    subject = 'Your preferred temperature'
     body = '''
     Temperature exceeded 24°C do you want to turn on fans?
+    '''
+    em = EmailMessage()
+    em['From'] = email_sender
+    em['To'] = email_receiver
+    em['Subject'] = subject
+    em.set_content(body)
+
+    context = ssl.create_default_context()
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+        smtp.login(email_sender, email_password)
+        smtp.send_message(em)
+        
+def sendLightEmail():
+    global email_status
+    email_status = "Email has been sent."
+    subject = 'Light is ON'
+    body = '''
+    The Light is ON at {led_on_time.strftime("%H:%M")} time.
     '''
     em = EmailMessage()
     em['From'] = email_sender
@@ -111,8 +134,9 @@ app.layout = html.Div(children=[
         ]),
         html.Div(children=[
             html.P("User ID: 1232320", id="uid"),
-            html.P("User Prefered Temperature: 24°C"),
+            html.P("User Preferred Temperature: 24°C"),
             html.P("User Name : Name123")
+            html.P("Light Intensity Email Status: {email_status}")
         ], id="userContent")
     ],id='topDiv'),
     
@@ -190,7 +214,7 @@ def update_image(toggle_value):
         GPIO.output(LED, GPIO.HIGH)
         return lightOn
     else:
-        GPIO.output(LED, GPIO.LOW) 
+        GPIO.output(LED, GPIO.LOW)
         return lightOff
 
 
@@ -217,7 +241,7 @@ def HumTempGauges(inVal):
     #Check if fan must be turned on
     if(dht.temperature >= 24 and isSent == False):
         isSent = True # only send 1 email
-        send()
+        sendTempEmail()
         return 0
         
     return dht.temperature, dht.humidity
@@ -236,10 +260,6 @@ def scan(n):
 	return f'{number_of_devices} devices found'     
 '''
 
-# TODO: At the moment, the fan is only being turned on by a toggle switch. Change when email is received.
-# every second, check if the email was sent
-# if yes read the email
-# else set isSent to True and send an email
 @app.callback(
     Output('rotate-image', 'className'),
     Input('intervalDiv', 'n_intervals'),
@@ -247,7 +267,9 @@ def scan(n):
 )
 def check(toggle_value):
     global isSent
-    global curr_temperature
+    global led_on_time
+    
+    led_on_time = datetime.datetime.now()
     
     if(curr_temperature < 24):
         closeMot()
@@ -259,7 +281,7 @@ def check(toggle_value):
         password = 'wgdc hsdp jdlj xgld'  # Your email password
 
         # Subject to search for
-        subject_to_search = 'Your prefered temperature'
+        subject_to_search = 'Your preferred temperature'
 
         # Connect to the IMAP server
         mail = imaplib.IMAP4_SSL(imap_server)
