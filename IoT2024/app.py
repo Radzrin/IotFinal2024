@@ -13,8 +13,8 @@ import os, ssl, smtplib
 from email.message import EmailMessage
 import email, imaplib
 from email.header import Header, decode_header
-import paho.mqtt.client as mqttClient
-import dash_mqtt
+from photoResistor import PhotoResistor
+import threading
 
 # GPIO WARNING OFF (ignore this part)
 GPIO.setwarnings(False)
@@ -24,16 +24,18 @@ GPIO.setmode(GPIO.BCM)
 LED = 12
 GPIO.setup(LED, GPIO.OUT)
 
+# Photoresistor
+resistor = PhotoResistor()
+lightIntensity = 0
+
 # DHT11 Setup
-#DHTPin = 13
-DHTPin = 17
-dht = DHT.DHT(DHTPin)
+DHTPin = 13 
+dht = DHT.DHT(DHTPin) 
 
 # Motor Setup
 Motor1 = 22 # Enable Pin
 Motor2 = 27 # Input Pin
-Motor3 = 4
-#Motor3 = 17 # Input Pin
+Motor3 = 17 # Input Pin
 GPIO.setup(Motor1,GPIO.OUT)
 GPIO.setup(Motor2,GPIO.OUT)
 GPIO.setup(Motor3,GPIO.OUT)
@@ -58,13 +60,10 @@ isSent = False
 curr_temperature = 0
 led_on_time = datetime.datetime.now()
 email_status = ""
+emailLightCount = 0
 email_sender = 'galenkomaxym@gmail.com'
 email_password = 'wgdc hsdp jdlj xgld'
 email_receiver = 'galenkomaxym@gmail.com'
-
-broker_address= "192.168.0.167"  #Broker address
-port = 1884   
-
 
 def sendTempEmail():
     subject = 'Your preferred temperature'
@@ -85,11 +84,12 @@ def sendTempEmail():
         
 def sendLightEmail():
     global email_status
+    global emailLightCount
+    emailLightCount = 1
     email_status = "Email has been sent."
     subject = 'Light is ON'
     body = '''
-    The Light is ON at {led_on_time.strftime("%H:%M")} time.
-    '''
+    The Light is ON at '''+ str(led_on_time.strftime("%H:%M")) +'''.'''
     em = EmailMessage()
     em['From'] = email_sender
     em['To'] = email_receiver
@@ -133,10 +133,10 @@ app.layout = html.Div(children=[
             html.Img(src="assets/userIcon.png", id="userIcon"),
         ]),
         html.Div(children=[
-            html.P("User ID: 1232320", id="uid"),
-            html.P("User Preferred Temperature: 24°C"),
-            html.P("User Name : Name123")
-            html.P("Light Intensity Email Status: {email_status}")
+            html.P("User ID: 204834"),
+            html.P("User Prefered Temperature: 24°C"),
+            html.P("User Name : Name123"),
+            html.P(id="lightEmailStatus")
         ], id="userContent")
     ],id='topDiv'),
     
@@ -188,10 +188,17 @@ app.layout = html.Div(children=[
             html.Div([
                 html.Img(id='image-display'),
             ], id="lightDiv"),
-            daq.ToggleSwitch(id='image-toggle')
+            dcc.Slider(
+                        0,1000, 
+                        marks=None,
+                        disabled=True,
+                        tooltip={"placement": "bottom", "always_visible": True},
+                        id="intensityValue"
+                    )
         ], id="div2"),
     ], className="widgetContainer"),
 	# Testing
+
 	# html.Div(id='testT'),
 	
     dcc.Interval(
@@ -201,21 +208,37 @@ app.layout = html.Div(children=[
     )
 
 ])
+
+#Update Light Intensity
+@app.callback(Output('intensityValue', 'value'),
+    Input('intervalDiv', 'n_intervals'))
+    
+def update_lightIntensity(toggle_value):
+    lightIntensity = int(resistor.lightValue)
+    
+    return lightIntensity
     
 #Turn LED on and off whenever the user presses the button on the dashboard
 @app.callback(Output('image-display', 'src'),
-    Input('image-toggle', 'value'))
+            Output('lightEmailStatus', 'children'),
+            Input('intervalDiv', 'n_intervals'))
     
 def update_image(toggle_value):
     lightOn = 'assets/lightOn.png'
     lightOff = 'assets/lightOff.png'
+    lightIntensity = int(resistor.lightValue)
+    global emailLightCount
     
-    if toggle_value:
+    if int(lightIntensity) < 400:
+        if(emailLightCount == 0):
+            sendLightEmail()
+            emailLightCount = 1
         GPIO.output(LED, GPIO.HIGH)
-        return lightOn
+        return lightOn, "Light Intensity Email Status: Sent"
     else:
-        GPIO.output(LED, GPIO.LOW)
-        return lightOff
+        GPIO.output(LED, GPIO.LOW) 
+        emailLightCount = 0
+        return lightOff, "Light Intensity Email Status: Not Sent"
 
 
 # Change the humidity and temperature in real time and send email if it reaches a certain threshold (10*C)
@@ -260,6 +283,10 @@ def scan(n):
 	return f'{number_of_devices} devices found'     
 '''
 
+# TODO: At the moment, the fan is only being turned on by a toggle switch. Change when email is received.
+# every second, check if the email was sent
+# if yes read the email
+# else set isSent to True and send an email
 @app.callback(
     Output('rotate-image', 'className'),
     Input('intervalDiv', 'n_intervals'),
@@ -319,30 +346,6 @@ def check(toggle_value):
         mail.close()
         mail.logout()
 
-# The callback for when the client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
-
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    client.subscribe("IoTlab/ESP")
-    client.subscribe("/esp8266/data")
-
-# The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
-
-client = mqttClient.Client()
-client.on_connect = on_connect
-client.on_message = on_message
-
-client.connect_async(broker_address, 1884, 60)
-
-# Blocking call that processes network traffic, dispatches callbacks and
-# handles reconnecting.
-# Other loop*() functions are available that give a threaded interface and a
-# manual interface.
-client.loop_start()
-  
 if __name__ == '__main__':
+    threading.Thread(target=resistor.run).start()
     app.run_server(debug=True)
