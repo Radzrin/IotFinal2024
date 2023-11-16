@@ -165,8 +165,8 @@ app.layout = html.Div(children=[
                         label="Humidity",
                         value=0,
                         min=0,
-                        max=150,
-                        units="°C",
+                        max=100,
+                        units="%",
                         size=150
                     ),
                 ], id="hum-gaugeDiv"),

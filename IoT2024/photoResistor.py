@@ -2,7 +2,7 @@ from paho.mqtt import client as mqtt_client
 import random
 
 class PhotoResistor :
-    broker = '192.168.0.167'
+    broker = '192.168.0.142'
     port = 1883
     topic = "IoTlab/ESP"
     client_id = f'subscribe-{random.randint(0, 100)}'

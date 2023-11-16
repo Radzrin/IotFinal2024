@@ -1,13 +1,17 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-const char* ssid = "TP-Link_2AD8";
-const char* password = "14730078";
-const char* mqtt_server = "192.168.0.167";
-int value; 
-const int pResistor = A0;
+//const char* ssid = "TP-Link_2AD8";
+//const char* password = "14730078";
+const char* ssid = "grigor";
+const char* password = "julieta11";
+const char* mqtt_server = "192.168.0.142";
+WiFiClient espClient;
+PubSubClient client(espClient);
 
-WiFiClient vanieriot;
-PubSubClient client(vanieriot);
+const int photoresistorPin = A0;
+int lightValue = 0;
+//int LED =13;
+
 void setup_wifi() {
  delay(10);
  // We start by connecting to a WiFi network
@@ -38,7 +42,7 @@ void callback(String topic, byte* message, unsigned int length) {
 void reconnect() {
  while (!client.connected()) {
  Serial.print("Attempting MQTT connection...");
- if (client.connect("vanieriot")) {
+ if (client.connect("espClient")) {
  Serial.println("connected");
 
  } else {
@@ -53,24 +57,28 @@ void reconnect() {
 void setup() {
 
  Serial.begin(115200);
+ pinMode(photoresistorPin, INPUT);
  setup_wifi();
  client.setServer(mqtt_server, 1883);
  client.setCallback(callback);
- pinMode(pResistor, INPUT);
 }
 void loop() {
  if (!client.connected()) {
  reconnect();
  }
  if(!client.loop())
- client.connect("vanieriot");
+ client.connect("espClient");
+ 
+ lightValue = analogRead(photoresistorPin);
+ Serial.println(lightValue);
+//
+//  if (lightValue < 400) {
+//    digitalWrite(LED, HIGH);
+//  }else {
+//    digitalWrite(LED, LOW);
+//  }
 
-  value = analogRead(pResistor);
- Serial.println("Light intensity is: ");
-Serial.println (value );
-String lgt =  String(value);  
+ client.publish("IoTlab/ESP",String(lightValue).c_str());
 
- client.publish("IoTlab/ESP",lgt.c_str());
-
- delay(5000);
+ delay(3000);
  }

@@ -8,9 +8,9 @@ MFRC522::MIFARE_Key key;
 byte nuidPICC[4];
 
 
-const char* ssid = "TP-Link_2AD8";
-const char* password = "14730078";
-const char* mqtt_server = "192.168.0.167";
+const char* ssid = "grigor";
+const char* password = "julieta11";
+const char* mqtt_server = "192.168.0.142";
 
 int value; 
 const int pResistor = A0;
@@ -64,7 +64,7 @@ void reconnect() {
 void setup() {
 Serial.begin(115200);
 setup_wifi();
-client.setServer(mqtt_server, 1884);
+client.setServer(mqtt_server, 1883);
 client.setCallback(callback);
 SPI.begin(); // Init SPI bus
 rfid.PCD_Init(); // Init MFRC522
