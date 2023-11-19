@@ -1,3 +1,4 @@
+import time, datetime, webbrowser, os, ssl, smtplib, email, imaplib, threading, sqlite3, secrets
 from dash import Dash, html, dcc, Input, Output, callback, DiskcacheManager, CeleryManager
 import plotly.graph_objects as go
 import dash_daq as daq
@@ -7,14 +8,9 @@ from gpiozero import LED
 import Freenove_DHT as DHT
 import DHT11 as DHT11
 # import bluetooth
-import time, datetime
-import webbrowser
-import os, ssl, smtplib
 from email.message import EmailMessage
-import email, imaplib
 from email.header import Header, decode_header
 from photoResistor import PhotoResistor
-import threading
 
 # GPIO WARNING OFF (ignore this part)
 GPIO.setwarnings(False)
@@ -40,6 +36,25 @@ GPIO.setup(Motor1,GPIO.OUT)
 GPIO.setup(Motor2,GPIO.OUT)
 GPIO.setup(Motor3,GPIO.OUT)
 
+# Creating and populating the database
+con = sqlite3.connect("iotuserinfo.db")
+cur = con.cursor()
+
+cur.execute("DROP TABLE IF EXISTS user")
+
+cur.execute("CREATE TABLE user(RFID_tag, username, email, temp_threshold, light_treshhold)")
+
+#res = cur.execute("SELECT name FROM sqlite_master")
+#print(res.fetchone())
+
+cur.execute("""
+    INSERT INTO user VALUES
+        (' 36 1f 56 91', 'Chris', 'kiko65@outlook.com', '24', '200'),
+        (' 76 47 50 91', 'Maxym', 'maxymgalenko@gmail.com', '23', '300')
+""")
+
+con.commit()
+
 def clean(text):
 	# clean text for creating a folder
 	return "".join(c if c.isalnum() else "_" for c in text)
@@ -56,11 +71,11 @@ def closeMot():
 
 fanON = "rotate-image"
 fanOFF = ""
-isSent = False
+isSentTempEmail = False
+isSentLightEmail = False
 curr_temperature = 0
 led_on_time = datetime.datetime.now()
 email_status = ""
-emailLightCount = 0
 email_sender = 'galenkomaxym@gmail.com'
 email_password = 'wgdc hsdp jdlj xgld'
 email_receiver = 'galenkomaxym@gmail.com'
@@ -84,8 +99,8 @@ def sendTempEmail():
         
 def sendLightEmail():
     global email_status
-    global emailLightCount
-    emailLightCount = 1
+    #global isSentLightEmail
+    #isSentLightEmail = True
     email_status = "Email has been sent."
     subject = 'Light is ON'
     body = '''
@@ -227,17 +242,17 @@ def update_image(toggle_value):
     lightOn = 'assets/lightOn.png'
     lightOff = 'assets/lightOff.png'
     lightIntensity = int(resistor.lightValue)
-    global emailLightCount
+    global isSentLightEmail
     
     if int(lightIntensity) < 400:
-        if(emailLightCount == 0):
-            sendLightEmail()
-            emailLightCount = 1
+        if(isSentLightEmail == False):
+            sentLightEmail()
+            isSentLightEmail = True
         GPIO.output(LED, GPIO.HIGH)
         return lightOn, "Light Intensity Email Status: Sent"
     else:
-        GPIO.output(LED, GPIO.LOW) 
-        emailLightCount = 0
+        GPIO.output(LED, GPIO.LOW)
+        isSentLightEmail = False
         return lightOff, "Light Intensity Email Status: Not Sent"
 
 
@@ -251,7 +266,7 @@ def update_image(toggle_value):
 )
 
 def HumTempGauges(inVal):
-    global isSent
+    global isSentTempEmail
     global curr_temperature
     for i in range(0,15):
         chk = dht.readDHT11()     #read DHT11 and get a return value. Then determine whether data read is normal according to the return value.
@@ -262,8 +277,8 @@ def HumTempGauges(inVal):
     curr_temperature = dht.temperature
 	
     #Check if fan must be turned on
-    if(dht.temperature >= 24 and isSent == False):
-        isSent = True # only send 1 email
+    if(dht.temperature >= 24 and isSentTempEmail == False):
+        isSentTempEmail = True # only send 1 email
         sendTempEmail()
         return 0
         
@@ -283,17 +298,14 @@ def scan(n):
 	return f'{number_of_devices} devices found'     
 '''
 
-# TODO: At the moment, the fan is only being turned on by a toggle switch. Change when email is received.
-# every second, check if the email was sent
-# if yes read the email
-# else set isSent to True and send an email
+# Checks if the email was answered with a yes to tun on the fan
 @app.callback(
     Output('rotate-image', 'className'),
     Input('intervalDiv', 'n_intervals'),
     prevent_initial_call=True
 )
 def check(toggle_value):
-    global isSent
+    global isSentTempEmail
     global led_on_time
     
     led_on_time = datetime.datetime.now()
