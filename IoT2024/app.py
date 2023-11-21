@@ -24,6 +24,17 @@ GPIO.setup(LED, GPIO.OUT)
 resistor = PhotoResistor()
 lightIntensity = 0
 
+# RFID
+rfid_codes = []
+user_info = []
+id = ""
+temp_th = 0
+light_th = 0
+username = ""
+curr_user = ""
+userEmail = ""
+userEmailCount = 0
+
 # DHT11 Setup
 DHTPin = 13 
 dht = DHT.DHT(DHTPin) 
@@ -44,17 +55,22 @@ cur.execute("DROP TABLE IF EXISTS user")
 
 cur.execute("CREATE TABLE user(RFID_tag, username, email, temp_threshold, light_treshhold)")
 
-#res = cur.execute("SELECT name FROM sqlite_master")
-#print(res.fetchone())
-
 cur.execute("""
     INSERT INTO user VALUES
-        (' 36 1f 56 91', 'Chris', 'kiko65@outlook.com', '24', '200'),
-        (' 76 47 50 91', 'Maxym', 'maxymgalenko@gmail.com', '23', '300')
+        (' 36 1f 56 91', 'Chris', 'kiko65@outlook.com', 24, 200),
+        (' 76 47 50 91', 'Maxym', 'maxymgalenko@gmail.com', 23, 300)
 """)
+
+users = cur.execute("SELECT * FROM user").fetchall()
+
+for user in users:
+    user_info.append(user);
 
 con.commit()
 
+#----------------------------------------
+
+# Motor Setup
 def clean(text):
 	# clean text for creating a folder
 	return "".join(c if c.isalnum() else "_" for c in text)
@@ -69,6 +85,7 @@ def closeMot():
 	GPIO.output(Motor2,GPIO.HIGH)
 	GPIO.output(Motor3,GPIO.LOW)
 
+# Email Setup
 fanON = "rotate-image"
 fanOFF = ""
 isSentTempEmail = False
@@ -99,12 +116,27 @@ def sendTempEmail():
         
 def sendLightEmail():
     global email_status
-    #global isSentLightEmail
-    #isSentLightEmail = True
     email_status = "Email has been sent."
     subject = 'Light is ON'
     body = '''
     The Light is ON at '''+ str(led_on_time.strftime("%H:%M")) +'''.'''
+    em = EmailMessage()
+    em['From'] = email_sender
+    em['To'] = email_receiver
+    em['Subject'] = subject
+    em.set_content(body)
+
+    context = ssl.create_default_context()
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+        smtp.login(email_sender, email_password)
+        smtp.send_message(em)
+
+def sendUserEmail():
+    global username
+    subject = 'New User'
+    body = '''
+    User '''+ str(username) +'''has entered at''' + str(led_on_time.strftime("%H:%M"))+ '''.'''
     em = EmailMessage()
     em['From'] = email_sender
     em['To'] = email_receiver
@@ -224,6 +256,53 @@ app.layout = html.Div(children=[
 
 ])
 
+# Display User Info, if not register user
+@app.callback(
+                Output('user_id', 'children'),
+                Output('username', 'children'),
+                Output('email', 'children'),
+                Output('temp_t', 'children'),
+                Output('light_t', 'children'),
+                Input('intervalDiv', 'n_intervals'),
+                prevent_initial_call=True
+              )
+
+def update_User(toggle_value):
+    global id
+    global temp_th
+    global light_th
+    global user_info
+    global username
+    global temp_th
+    global rfid_codes
+    global curr_user
+    global userEmail
+    global userEmailCount
+
+    # rfid_code = str(rfid.rfid_code) 
+    rfid_code = ' 36 1f 56 91' # to test, remove when done and uncomment above
+    
+    for user in user_info:
+        if rfid_code in user[0]:
+            # Send Email if not sent yet
+            if(userEmailCount == 0):
+                # sendUserEmail()
+                userEmailCount = 1
+            
+            # Display Current User's Information
+            curr_user = str(user[0])
+            id = "User ID:" + str(curr_user)
+            temp_string = "User Preferred Temperature: " + str(user[3]) + "°C"
+            light_string = "User Preferred Light Intensity: " + str(user[3])
+            temp_th = int(user[3])
+            light_th = int(user[3])
+            username = "Username: " + str(user[1])
+            email = "Email: " + str(user[2])
+            return id, username, email, temp_string, light_string
+        else: 
+            # Return Not Valid if the User is not in the system
+            return "User ID: Not Valid", "Username: Not Valid","Email: Not Valid", "User Preferred Temperature: Not Valid", "User Preferred Light Intensity: Not Valid"
+
 #Update Light Intensity
 @app.callback(Output('intensityValue', 'value'),
     Input('intervalDiv', 'n_intervals'))
@@ -243,8 +322,9 @@ def update_image(toggle_value):
     lightOff = 'assets/lightOff.png'
     lightIntensity = int(resistor.lightValue)
     global isSentLightEmail
+    global light_th
     
-    if int(lightIntensity) < 400:
+    if int(lightIntensity) < light_th:
         if(isSentLightEmail == False):
             sentLightEmail()
             isSentLightEmail = True
@@ -266,6 +346,7 @@ def update_image(toggle_value):
 )
 
 def HumTempGauges(inVal):
+    global temp_th
     global isSentTempEmail
     global curr_temperature
     for i in range(0,15):
@@ -277,7 +358,7 @@ def HumTempGauges(inVal):
     curr_temperature = dht.temperature
 	
     #Check if fan must be turned on
-    if(dht.temperature >= 24 and isSentTempEmail == False):
+    if(dht.temperature >= temp_th and isSentTempEmail == False):
         isSentTempEmail = True # only send 1 email
         sendTempEmail()
         return 0
@@ -307,10 +388,11 @@ def scan(n):
 def check(toggle_value):
     global isSentTempEmail
     global led_on_time
+    global temp_th
     
     led_on_time = datetime.datetime.now()
     
-    if(curr_temperature < 24):
+    if(curr_temperature < temp_th):
         closeMot()
         return fanOFF
     else:
