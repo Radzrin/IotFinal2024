@@ -7,7 +7,7 @@ import RPi.GPIO as GPIO
 from gpiozero import LED
 import Freenove_DHT as DHT
 import DHT11 as DHT11
-# import bluetooth
+from bluepy.btle import Scanner
 from email.message import EmailMessage
 from email.header import Header, decode_header
 from photoResistor import PhotoResistor
@@ -180,9 +180,11 @@ app.layout = html.Div(children=[
             html.Img(src="assets/userIcon.png", id="userIcon"),
         ]),
         html.Div(children=[
-            html.P("User ID: 204834"),
-            html.P("User Prefered Temperature: 24°C"),
-            html.P("User Name : Name123"),
+            html.P("User ID: 204834", id="user_id"),
+            html.P("User Prefered Temperature: 24°C", id="temp_t"),
+            html.P("User Name : Name123", id="username"),
+            html.P(id="email"),
+            html.P(id="light_t"),
             html.P(id="lightEmailStatus")
         ], id="userContent")
     ],id='topDiv'),
@@ -245,7 +247,9 @@ app.layout = html.Div(children=[
         ], id="div2"),
     ], className="widgetContainer"),
 	# Testing
-
+    html.Div(children=[
+         html.Button('Check Bluetooth', id='btebtn', n_clicks=0)
+    ], id="bluetoothDiv"),
 	# html.Div(id='testT'),
 	
     dcc.Interval(
@@ -257,16 +261,13 @@ app.layout = html.Div(children=[
 ])
 
 # Display User Info, if not register user
-@app.callback(
-                Output('user_id', 'children'),
+@app.callback(Output('user_id', 'children'),
                 Output('username', 'children'),
                 Output('email', 'children'),
                 Output('temp_t', 'children'),
                 Output('light_t', 'children'),
-                Input('intervalDiv', 'n_intervals'),
-                prevent_initial_call=True
-              )
-
+    Input('intervalDiv', 'n_intervals'))
+     
 def update_User(toggle_value):
     global id
     global temp_th
@@ -279,8 +280,8 @@ def update_User(toggle_value):
     global userEmail
     global userEmailCount
 
-    # rfid_code = str(rfid.rfid_code) 
-    rfid_code = ' 36 1f 56 91' # to test, remove when done and uncomment above
+    rfid_code = str(resistor.rfidValue) 
+   # rfid_code = ' 36 1f 56 91' # to test, remove when done and uncomment above
     
     for user in user_info:
         if rfid_code in user[0]:
@@ -298,7 +299,9 @@ def update_User(toggle_value):
             light_th = int(user[3])
             username = "Username: " + str(user[1])
             email = "Email: " + str(user[2])
-            return id, username, email, temp_string, light_string
+
+
+            return id, username, email, temp_string, light_string    
         else: 
             # Return Not Valid if the User is not in the system
             return "User ID: Not Valid", "Username: Not Valid","Email: Not Valid", "User Preferred Temperature: Not Valid", "User Preferred Light Intensity: Not Valid"
@@ -309,6 +312,7 @@ def update_User(toggle_value):
     
 def update_lightIntensity(toggle_value):
     lightIntensity = int(resistor.lightValue)
+    #update_User(toggle_value)
     
     return lightIntensity
     
@@ -356,7 +360,7 @@ def HumTempGauges(inVal):
         time.sleep(0.1)
     
     curr_temperature = dht.temperature
-	
+    
     #Check if fan must be turned on
     if(dht.temperature >= temp_th and isSentTempEmail == False):
         isSentTempEmail = True # only send 1 email
@@ -365,19 +369,22 @@ def HumTempGauges(inVal):
         
     return dht.temperature, dht.humidity
 
-'''
 @callback(
-	Output('bluetoothDiv', 'children'),
-	Input('interv', 'n_intervals'),
-	prevent_initial_call=True
- )           
+    Output('bluetoothDiv', 'children'),
+    Input('btebtn', 'n_clicks'),
+    prevent_initial_call=True
+) 
 def scan(n):
-
-	devices = bluetooth.discover_devices(lookup_names = True, lookup_class = True)
-
-	number_of_devices = len(devices)
-	return f'{number_of_devices} devices found'     
-'''
+	print("please wait")
+	scanner = Scanner()
+	devices = scanner.scan(10.0)
+	countBT = 0
+ 
+	for device in devices:
+		if (device.rssi > -100 and device.rssi < -75):
+			count += 1
+                       
+	return countBT           
 
 # Checks if the email was answered with a yes to tun on the fan
 @app.callback(
