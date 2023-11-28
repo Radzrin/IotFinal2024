@@ -35,6 +35,7 @@ curr_user = ""
 userEmail = ""
 userEmailCount = 0
 
+
 # DHT11 Setup
 DHTPin = 13 
 dht = DHT.DHT(DHTPin) 
@@ -247,9 +248,9 @@ app.layout = html.Div(children=[
         ], id="div2"),
     ], className="widgetContainer"),
 	# Testing
-    html.Div(children=[
-         html.Button('Check Bluetooth', id='btebtn', n_clicks=0)
-    ], id="bluetoothDiv"),
+    html.Button('Submit', id='btebtn', n_clicks=0),
+    html.Div(id="bluetoothDiv"),
+    html.Div(id='container-button-basic', children='Enter a value and press submit'),
 	# html.Div(id='testT'),
 	
     dcc.Interval(
@@ -315,6 +316,24 @@ def update_lightIntensity(toggle_value):
     #update_User(toggle_value)
     
     return lightIntensity
+
+#Update Light Intensity
+@app.callback(Output('bluetoothDiv', 'children'),
+    Input('btebtn', 'n_clicks'),
+    prevent_initial_call=True)
+    
+def update_bte(toggle_value):
+    print("please wait")
+    scanner = Scanner()
+    devices = scanner.scan(10.0)
+    countBT = 0
+ 
+    for device in devices:
+        if (device.rssi > -100 and device.rssi < -75):
+            countBT  += 1
+                       
+    return countBT  
+
     
 #Turn LED on and off whenever the user presses the button on the dashboard
 @app.callback(Output('image-display', 'src'),
@@ -368,23 +387,6 @@ def HumTempGauges(inVal):
         return 0
         
     return dht.temperature, dht.humidity
-
-@callback(
-    Output('bluetoothDiv', 'children'),
-    Input('btebtn', 'n_clicks'),
-    prevent_initial_call=True
-) 
-def scan(n):
-	print("please wait")
-	scanner = Scanner()
-	devices = scanner.scan(10.0)
-	countBT = 0
- 
-	for device in devices:
-		if (device.rssi > -100 and device.rssi < -75):
-			count += 1
-                       
-	return countBT           
 
 # Checks if the email was answered with a yes to tun on the fan
 @app.callback(
