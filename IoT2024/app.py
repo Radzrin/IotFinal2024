@@ -58,7 +58,7 @@ cur.execute("CREATE TABLE user(RFID_tag, username, email, temp_threshold, light_
 
 cur.execute("""
     INSERT INTO user VALUES
-        (' 36 1f 56 91', 'Chris', 'kiko65@outlook.com', 24, 200),
+        (' 36 1f 56 91', 'Chris', 'kiko625@outlook.com', 24, 200),
         (' 76 47 50 91', 'Maxym', 'maxymgalenko@gmail.com', 23, 300)
 """)
 
@@ -181,12 +181,12 @@ app.layout = html.Div(children=[
             html.Img(src="assets/userIcon.png", id="userIcon"),
         ]),
         html.Div(children=[
-            html.P("User ID: 204834", id="user_id"),
-            html.P("User Prefered Temperature: 24°C", id="temp_t"),
-            html.P("User Name : Name123", id="username"),
-            html.P(id="email"),
-            html.P(id="light_t"),
-            html.P(id="lightEmailStatus")
+            html.P("User ID: Not Valid", id="user_id"),
+            html.P("User Preferred Temperature: Not Valid", id="temp_t"),
+            html.P("Username: Not Valid", id="username"),
+            html.P("Email: Not Valid", id="email"),
+            html.P("Light Intensity Threshold: Not Valid", id="light_t"),
+            html.P("Email Status: Not Sent", id="lightEmailStatus")
         ], id="userContent")
     ],className='topDivs'),
 
@@ -285,19 +285,18 @@ def update_User(toggle_value):
     global userEmail
     global userEmailCount
 
-    rfid_code = str(resistor.rfidValue) 
-   # rfid_code = ' 36 1f 56 91' # to test, remove when done and uncomment above
+    rfid_code = str(resistor.rfidValue)
     
     for user in user_info:
         if rfid_code in user[0]:
             # Send Email if not sent yet
             if(userEmailCount == 0):
-                # sendUserEmail()
+                sendUserEmail()
                 userEmailCount = 1
             
             # Display Current User's Information
             curr_user = str(user[0])
-            id = "User ID:" + str(curr_user)
+            id = "User ID:" + str(user[0])
             temp_string = "User Preferred Temperature: " + str(user[3]) + "°C"
             light_string = "User Preferred Light Intensity: " + str(user[3])
             temp_th = int(user[3])
@@ -305,11 +304,7 @@ def update_User(toggle_value):
             username = "Username: " + str(user[1])
             email = "Email: " + str(user[2])
 
-
-            return id, username, email, temp_string, light_string    
-        else: 
-            # Return Not Valid if the User is not in the system
-            return "User ID: Not Valid", "Username: Not Valid","Email: Not Valid", "User Preferred Temperature: Not Valid", "User Preferred Light Intensity: Not Valid"
+            return id, username, email, temp_string, light_string
 
 #Update Light Intensity
 @app.callback(Output('intensityValue', 'value'),
