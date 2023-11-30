@@ -188,7 +188,16 @@ app.layout = html.Div(children=[
             html.P(id="light_t"),
             html.P(id="lightEmailStatus")
         ], id="userContent")
-    ],id='topDiv'),
+    ],className='topDivs'),
+
+    html.Div(children=[
+        html.H1("Bluetooth", "header"),
+        html.Div(children=[
+            html.P("Press Scan to get the number of devices around you."),
+            html.P("Number of devices: ", id="bluetoothDiv"),
+            html.Button('Scan', id='btebtn', n_clicks=0),
+        ], className="content"),
+    ], className="topDivs"),
     
     # Temperature and Humidity Header
     html.Div(children=[
@@ -230,7 +239,7 @@ app.layout = html.Div(children=[
             html.Div(children=[
                 html.Img(style={'width': '200px', 'height': '200px'}, src="assets/fan.png", className="", id="rotate-image"),
             ], id="fanDiv")
-        ], id="div1"),
+        ], className="bottomDivs"),
         
         # Light Div
         html.Div(children=[
@@ -245,13 +254,8 @@ app.layout = html.Div(children=[
                         tooltip={"placement": "bottom", "always_visible": True},
                         id="intensityValue"
                     )
-        ], id="div2"),
+        ], className="bottomDivs"),
     ], className="widgetContainer"),
-	# Testing
-    html.Button('Submit', id='btebtn', n_clicks=0),
-    html.Div(id="bluetoothDiv"),
-    html.Div(id='container-button-basic', children='Enter a value and press submit'),
-	# html.Div(id='testT'),
 	
     dcc.Interval(
         id='intervalDiv',
@@ -332,7 +336,7 @@ def update_bte(toggle_value):
         if (device.rssi > -100 and device.rssi < -75):
             countBT  += 1
                        
-    return countBT  
+    return "Number of Devices: " + countBT  
 
     
 #Turn LED on and off whenever the user presses the button on the dashboard

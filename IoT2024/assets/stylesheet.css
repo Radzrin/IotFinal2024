@@ -11,16 +11,6 @@ body {
     font-family: 'M PLUS Rounded 1c', sans-serif;
 }
 
-#topDiv {
-    background-color: #bcc1c4;
-    height: 250px;
-    width: 97%;
-    border-radius: 10px;
-    border-color: black;
-    border-style: solid;
-    margin: 10px;
-}
-
 #userIcon {
     padding: 20px;
     width: 8%;
@@ -39,14 +29,34 @@ body {
     height:300px;
 }
 
-#div1, #div2 {
+.bottomDivs {
     background-color: #bcc1c4;
     float:left;
     width:24%;
     height:300px;
     border:solid black;
     border-radius: 10px;
+    margin-right: 10px;
 }
+
+.topDivs {
+    background-color: #bcc1c4;
+    margin: 5px;
+    float:left;
+    width:48%;
+    height:300px;
+    border:solid black;
+    border-radius: 10px;
+}
+
+.content {
+    padding: 10px;
+}
+
+#temp-humDiv {
+    margin-right: 10px;
+}
+
 
 #centered {
     margin: auto;
@@ -58,10 +68,6 @@ body {
     padding: 20px;
     width:98%;
     height:300px;
-}
-
-#temp-humDiv, #div1{
-    margin-right: 10px;
 }
 
 #lightDiv {
