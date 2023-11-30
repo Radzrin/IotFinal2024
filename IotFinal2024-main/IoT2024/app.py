@@ -58,9 +58,9 @@ cur.execute("CREATE TABLE user(RFID_tag, username, email, temp_threshold, light_
 
 cur.execute("""
 INSERT INTO user VALUES
-    (' 36 1f 56 91', 'Chris', 'nicolecanlapanb@gmail.com', 24, 200),
-    (' 76 47 50 91', 'Maxym', 'maxymgalenko@gmail.com', 23, 700),
-    (' c3 34 cc 19', 'Nicole', 'nicolecanlapanb@gmail.com', 23, 500)
+    (' 36 1f 56 91', 'Chris', 'kiko625@outlook.com', 26, 200),
+    (' 76 47 50 91', 'Maxym', 'maxymgalenko@gmail.com', 26, 700),
+    (' c3 34 cc 19', 'Nicole', 'nicolecanlapanb@gmail.com', 26, 500)
 """)
 
 users = cur.execute("SELECT * FROM user").fetchall()
@@ -96,9 +96,9 @@ lightEmailCount = 0
 curr_temperature = 0
 led_on_time = datetime.datetime.now()
 email_status = ""
-email_sender = 'galenkomaxym@gmail.com'
-email_password = 'wgdc hsdp jdlj xgld'
-email_receiver = 'galenkomaxym@gmail.com'
+email_sender = 'maxymgalenko@gmail.com'
+email_password = 'bzbv vumv igji hbif'
+email_receiver = 'maxymgalenko@gmail.com'
 
 def sendTempEmail():
     print("sent")
@@ -151,6 +151,7 @@ def sendUserEmail():
     context = ssl.create_default_context()
 
     with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+        print("here")
         smtp.login(email_sender, email_password)
         print("after logging")
         smtp.send_message(em)
@@ -265,7 +266,7 @@ app.layout = html.Div(children=[
 	
     dcc.Interval(
         id='intervalDiv',
-        interval=1000,
+        interval=2000,
         n_intervals=0
     )
 
@@ -306,13 +307,9 @@ def update_User(toggle_value):
         if rfid_code in user[0] and rfid_code != "":
             print("curent user:" + rfid_code)
             if(userEmailCount == 0):
-                pass
                 sendUserEmail()
                 userEmailCount = 1
-            # sendUserEmail()
 
-            #print("rfid"+rfid_code)
-            # email_receiver = user[2]
             id = "User ID:" + user[0]
 
     #         # Display Current User's Information
@@ -325,11 +322,9 @@ def update_User(toggle_value):
             username = "Username: " + str(user[1])
             email = "Email: " + str(user[2])
             userEmail = str(user[2])
-
+            userEmailCount = 1
             #print(email)
             return "User ID:" + user[0], username, email, temp_string, light_string
-        else:
-            userEmailCount = 0
 
 #Update Light Intensity
 @app.callback(Output('intensityValue', 'value'),
@@ -407,7 +402,7 @@ def HumTempGauges(inVal):
         time.sleep(0.1)
     
     curr_temperature = dht.temperature
-    
+    print(temp_th)
     #Check if fan must be turned on
     if(dht.temperature >= temp_th and isSentTempEmail == False):
         isSentTempEmail = True # only send 1 email
@@ -436,8 +431,8 @@ def check(toggle_value):
     else:
         # IMAP settings
         imap_server = 'imap.gmail.com'  # Replace with your IMAP server (e.g., imap.gmail.com)
-        username = 'galenkomaxym@gmail.com'  # Your email address
-        password = 'wgdc hsdp jdlj xgld'  # Your email password
+        username = 'maxymgalenko@gmail.com'  # Your email address
+        password = 'bzbv vumv igji hbif'  # Your email password
 
         # Subject to search for
         subject_to_search = 'Your preferred temperature'

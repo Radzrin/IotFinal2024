@@ -8,9 +8,9 @@ MFRC522::MIFARE_Key key;
 byte nuidPICC[4];
 
 
-const char* ssid = "SM-A526W7455";
-const char* password = "upph3648";
-const char* mqtt_server = "192.168.22.210";
+const char* ssid = "grigor";
+const char* password = "julieta11";
+const char* mqtt_server = "192.168.0.142";
 
 int value; 
 const int pResistor = A0;
@@ -64,7 +64,7 @@ void reconnect() {
 void setup() {
 Serial.begin(115200);
 setup_wifi();
-client.setServer(mqtt_server, 1884);
+client.setServer(mqtt_server, 1883);
 client.setCallback(callback);
 SPI.begin(); // Init SPI bus
 rfid.PCD_Init(); // Init MFRC522
@@ -76,15 +76,12 @@ for (byte i = 0; i < 6; i++) {
  key.keyByte[i] = 0xFF;
 }
 
-
 Serial.println();
 Serial.println(F("This code scan the MIFARE Classic NUID."));
 Serial.print(F("Using the following key:"));
 printHex(key.keyByte, MFRC522::MF_KEY_SIZE);
 }
 void loop() {
-  value = analogRead(pResistor);
-
 // Reset the loop if no new card present on the sensor/reader. This saves the entire process when
 
 if ( ! rfid.PICC_IsNewCardPresent())
@@ -130,11 +127,14 @@ if (!client.connected()) {
 
 hex.toCharArray(tagnum, 14);
 
-
 client.publish("/esp8266/data", tagnum);
 
+  value = analogRead(pResistor);
+ Serial.println("Light intensity is: ");
+Serial.println (value );
+String lgt =  String(value);  
 
-
+ client.publish("IoTlab/ESP",lgt.c_str());
  
 delay(5000);
 }
