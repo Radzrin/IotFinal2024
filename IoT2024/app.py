@@ -293,26 +293,20 @@ def update_User(toggle_value):
     global userEmail
     global userEmailCount
     # global email_receiver
-    rfid_code = str(resistor.rfidValue) 
-    
-   # rfid_code = ' 36 1f 56 91' # to test, remove when done and uncomment above
-   # print(user_info)
+    rfid_code = str(resistor.rfidValue)
     
 #-------------
 
 
     for user in user_info:
-        print(user)
-        print("---------------------")
         if rfid_code in user[0] and rfid_code != "":
-            print("curent user:" + rfid_code)
             if(userEmailCount == 0):
                 sendUserEmail()
                 userEmailCount = 1
 
             id = "User ID:" + user[0]
 
-    #         # Display Current User's Information
+            # Display Current User's Information
             curr_user = str(user[0])
             
             temp_string = "User Preferred Temperature: " + str(user[3]) + "°C"
